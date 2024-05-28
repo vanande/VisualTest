@@ -1,0 +1,34 @@
+La reconnaissance d'images ne fonctionne pas si 2 écrans,
+seul un des 2 écrans est pris en compte.
+Les images doivent être au format PNG
+
+Configuration du projet dans
+    Libs\PyVisualAutomation.yaml
+
+Modifier
+    IMAGES: Répertoire des images de l'application
+    SCREENSHOT: Répertoire de sauvegarde des screenshots
+
+Modifier
+    WIDTH: résolution écran
+    HEIGHT: résolution écran
+
+Configurer la log dans logging.conf
+
+Création d'un test
+======================
+import Libs.PyVisualAutomation as va
+
+# Positionne le répertoire des images pour l'application
+# sous-dossier du dossier configuré dans PyVisualAutomation.yaml
+va.initialize("Calc")
+va.switch_to("Calculatrice", False)
+va.click_on_image("one")
+
+Remarques
+==========
+Si l'image n'est pas trouvée, un dossier est créé pour enregistrer le screenshot (qui servira un créer l'image voulue)
+La paramètre de click_on_image peut être un dossier. Dans ce cas la recherche bouclera sur toutes les images du dossier.
+
+les méthodes courantes
+find_image (image_name, timeout)
