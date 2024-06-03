@@ -71,8 +71,9 @@ def initialize (app):
         CONFIDENCE = yaml_config['CONFIDENCE']
         TIMEOUT = yaml_config['TIMEOUT']
         IMAGES = yaml_config['IMAGES'] + "\\" + app
-        HEIGHT = yaml_config['HEIGHT']
-        WIDTH = yaml_config['WIDTH']
+        # HEIGHT = yaml_config['HEIGHT']
+        # WIDTH = yaml_config['WIDTH']
+        WIDTH, HEIGHT = pyautogui.size()
 
 def close_existing_window():
     global WH_ACTIVE
@@ -289,7 +290,7 @@ def special_type (car):
     pyperclip.copy("")
 
 
-def type(text, clear):
+def type(text, clear=False):
     logging.debug("Type text : {0}".format(text))
     if clear:
         clear_input ()
