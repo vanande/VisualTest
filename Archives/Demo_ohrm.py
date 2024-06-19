@@ -1,5 +1,5 @@
 import time
-import Libs.PyVisualAutomation as va
+from ..Libs import PyVisualAutomation as va
 
 url = "https://opensource-demo.orangehrmlive.com/web/index.php/auth/login"
 firstname = "Vanande"

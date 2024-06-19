@@ -1,4 +1,4 @@
-import Libs.PyVisualAutomation as va
+from ..Libs import PyVisualAutomation as va
 
 # Positionne le répertoire des images pour l'application
 # sous-dossier du dossier configuré dans PyVisualAutomation.yaml
