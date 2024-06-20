@@ -15,8 +15,6 @@ Limitations actuelles:
 - Les images doivent être exactement similaire à celles recherchées (pas de rotation, de déformation, de changement de couleur)
 """
 
-
-
 import os
 import logging.config
 import time
@@ -31,7 +29,6 @@ from PIL import Image
 import pytesseract
 import numpy as np
 import re
-
 
 
 # Global Variables
@@ -356,6 +353,7 @@ def wait_vanish(image_name, timeout):
         logging.debug(f"Image vanished: {image_name}")
     return not found
 
+
 def click_on_image(image_name, confidence=None):
     if confidence is None:
         confidence = CONFIDENCE
@@ -411,6 +409,7 @@ def next_field():
     """
     pyautogui.press("tab")
 
+
 def type_text(text, clear=False):
     """
     écrit du texte
@@ -454,27 +453,38 @@ def move_mouse_at(x, y, offset=False):
     logging.debug(f"Mouse moved to {X}, {Y}")
 
 
-def ag_take_screenshot(name):
+def ag_take_screenshot(name, save_format=""):
     """
     prend un screenshot
     :param name: nom du fichier ou du dossier de sauvegarde
+    :param save_format: format dans lequel on souhaite sauvegarder (pas de sauvegarde par défaut)
     :return: chemin du fichier
     """
-    im1 = pyautogui.screenshot(region=REGION)
 
-    if os.path.isdir(os.path.join(SCREENSHOT, name)):
+    if save_format == "file":
+        im1 = pyautogui.screenshot(region=REGION)
+        file_path = os.path.join(SCREENSHOT, f"{name}-{dt_fr('', '')}.png")
+        im1.save(file_path)
+        return file_path
+
+    elif save_format == "dir":
+        im1 = pyautogui.screenshot(region=REGION)
         save_dir = os.path.join(SCREENSHOT, name)
+        os.makedirs(save_dir, exist_ok=True)
+        file_path = os.path.join(save_dir, f"{name}-{dt_fr('', '')}.png")
+        im1.save(file_path)
+        return file_path
+
     else:
-        save_dir = os.path.join(SCREENSHOT, os.path.basename(name))
-
-    os.makedirs(save_dir, exist_ok=True)
-
-    file_path = os.path.join(save_dir, f"{name}-{dt_fr('', '')}.png")
-
-    # Save the screenshot
-    im1.save(file_path)
-
-    return file_path
+        im1 = pyautogui.screenshot(region=REGION)
+        if os.path.isdir(os.path.join(SCREENSHOT, name)):
+            save_dir = os.path.join(SCREENSHOT, name)
+        else:
+            save_dir = os.path.join(SCREENSHOT, os.path.basename(name))
+        os.makedirs(save_dir, exist_ok=True)
+        file_path = os.path.join(save_dir, f"{name}-{dt_fr('', '')}.png")
+        im1.save(file_path)
+        return file_path
 
 
 def ag_take_region_screenshot(region, name):
@@ -490,8 +500,8 @@ def ag_take_region_screenshot(region, name):
     global WIDTH, HEIGHT
     im1 = pyautogui.screenshot(region=region)
 
-    base_name = re.sub(r'\d+$', '', name)
-    base_name = f'{base_name}_{WIDTH}x{HEIGHT}'
+    base_name = re.sub(r"\d+$", "", name)
+    base_name = f"{base_name}_{WIDTH}x{HEIGHT}"
     base_dir = os.path.join(IMAGES, base_name)
 
     if not os.path.exists(base_dir):
@@ -502,6 +512,7 @@ def ag_take_region_screenshot(region, name):
     im1.save(file_path)
     return file_path
 
+
 def grayscale(image):
     """
     convertit une image en nuances de gris
@@ -509,6 +520,7 @@ def grayscale(image):
     :return: image en nuances de gris
     """
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
 
 def noise_removal(image):
     """
@@ -522,7 +534,8 @@ def noise_removal(image):
     image = cv2.erode(image, kernel, iterations=1)
     image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
     image = cv2.medianBlur(image, 1)
-    return (image)
+    return image
+
 
 def thin_font(image, shape):
     """
@@ -530,11 +543,12 @@ def thin_font(image, shape):
     :param shape: intensité
     :return: image avec le texte affiné
     """
-    image =  cv2.bitwise_not(image)
+    image = cv2.bitwise_not(image)
     kernel = np.ones((shape), np.uint8)
     image = cv2.erode(image, kernel, iterations=1)
     image = cv2.bitwise_not(image)
-    return (image)
+    return image
+
 
 def thick_font(image, shape):
     """
@@ -542,11 +556,12 @@ def thick_font(image, shape):
     :param shape: intensité
     :return: image avec le texte rendu gras
     """
-    image =  cv2.bitwise_not(image)
+    image = cv2.bitwise_not(image)
     kernel = np.ones((shape), np.uint8)
     image = cv2.dilate(image, kernel, iterations=1)
     image = cv2.bitwise_not(image)
-    return (image)
+    return image
+
 
 def find_highest_hierarchy_level(hierarchy):
     """
@@ -564,6 +579,7 @@ def find_highest_hierarchy_level(hierarchy):
             parent = hierarchy[parent][3]
         highest_levels.append(level)
     return highest_levels
+
 
 def extract_highest_level_contours(contours, highest_levels, max_level):
     """
@@ -630,14 +646,20 @@ def find_element(folder, image, confidence=None, timeout=None):
                 handle_file_not_found(image_path)
             image_location = locate_image_on_screen(image_path, confidence)
             if image_location:
-                x, y = image_location.left + image_location.width / 2, image_location.top + image_location.height / 2
+                x, y = (
+                    image_location.left + image_location.width / 2,
+                    image_location.top + image_location.height / 2,
+                )
                 return x, y
         except Exception as e:
             logging.error(f"Error locating image: {e}")
         time.sleep(0.2)
 
     # ag_take_screenshot(IMAGES + "\\" + image)
-    raise FileNotFoundError(f"Could not find image '{image}' in folder '{folder}' within the timeout period.")
+    raise FileNotFoundError(
+        f"Could not find image '{image}' in folder '{folder}' within the timeout period."
+    )
+
 
 def click_on_element(folder, image, confidence=None, timeout=None):
     """
@@ -662,7 +684,16 @@ def click_on_element(folder, image, confidence=None, timeout=None):
     pyautogui.click()
     return element
 
-def store_elements(project, element_searched, field_width, field_height, w_marge=None, h_marge=None, i = 0):
+
+def store_elements(
+    project,
+    element_searched,
+    field_width,
+    field_height,
+    w_marge=None,
+    h_marge=None,
+    i=0,
+):
     """
     recherche les éléments correspondant aux tailles indiquées
     :param project: projet (nom du dossier principal)
@@ -690,22 +721,29 @@ def store_elements(project, element_searched, field_width, field_height, w_marge
 
     gray = cv2.cvtColor(actual_screen, cv2.COLOR_BGR2GRAY)
     thicked = thick_font(gray, 8)
-    blurred = cv2.GaussianBlur(thicked, (9,1), 0)
+    blurred = cv2.GaussianBlur(thicked, (9, 1), 0)
     threshed = cv2.threshold(blurred, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_OTSU)[1]
 
-    cnts, hierarchy = cv2.findContours(threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, hierarchy = cv2.findContours(
+        threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+    )
     hierarchy = hierarchy[0]
 
     highest_levels = find_highest_hierarchy_level(hierarchy)
     max_hierarchy_level = max(highest_levels)
-    highest_hierarchy_contours = extract_highest_level_contours(cnts, highest_levels, max_hierarchy_level)
-    highest_hierarchy_contours = sorted(highest_hierarchy_contours, key= lambda x: cv2.boundingRect(x)[0])
+    highest_hierarchy_contours = extract_highest_level_contours(
+        cnts, highest_levels, max_hierarchy_level
+    )
+    highest_hierarchy_contours = sorted(
+        highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0]
+    )
 
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
         if (field_height - h_marge < h < field_height + h_marge) and (
-                field_width - w_marge < w < field_width + w_marge):
+            field_width - w_marge < w < field_width + w_marge
+        ):
             ag_take_region_screenshot((x, y, w, h), f"{element_searched}{i}")
 
             i += 1
@@ -713,7 +751,16 @@ def store_elements(project, element_searched, field_width, field_height, w_marge
 
     return count
 
-def check_elements(field_width, field_height, w_marge=None, h_marge=None, seconds=0, project="check_element", save=False):
+
+def check_elements(
+    field_width,
+    field_height,
+    w_marge=None,
+    h_marge=None,
+    seconds=0,
+    project="check_element",
+    save=False,
+):
     """
     affiche les résultats (bounding boxes)
     :param field_width: largeur de l'élément recherché
@@ -733,6 +780,7 @@ def check_elements(field_width, field_height, w_marge=None, h_marge=None, second
         h_marge = field_height * 0.1
 
     count = 0
+    i = 0
     valid_results = (36, 255, 12)  # rgb
     false_results = (220, 220, 220)
 
@@ -754,32 +802,58 @@ def check_elements(field_width, field_height, w_marge=None, h_marge=None, second
     # threshed = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_OTSU, 11, 2)[1]
     # display_full_screen(threshed, "Elements threshed", seconds)
 
-    cnts, hierarchy = cv2.findContours(threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, hierarchy = cv2.findContours(
+        threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+    )
     hierarchy = hierarchy[0]
 
     highest_levels = find_highest_hierarchy_level(hierarchy)
     max_hierarchy_level = max(highest_levels)
-    highest_hierarchy_contours = extract_highest_level_contours(cnts, highest_levels, max_hierarchy_level)
-    highest_hierarchy_contours = sorted(highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0])
+    highest_hierarchy_contours = extract_highest_level_contours(
+        cnts, highest_levels, max_hierarchy_level
+    )
+    highest_hierarchy_contours = sorted(
+        highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0]
+    )
 
+    # with open("points.csv", "w") as f:
+    #     f.write("")
+    #     # f.write("I;X;Y;W;H\n")
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
+
+        write_in_file(f"{screencast_path}_points.csv", f"{i};{x};{y};{w};{h}\n")
+
+        if w < 10 or h < 10:
+            continue
+
         cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 2)
+        i += 1
+
+        cv2.putText(
+            actual_screen,
+            str(i),
+            (x + int(w / 2), y + int(h / 2)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 0, 255),
+            2,
+        )
 
         if (field_height - h_marge < h < field_height + h_marge) and (
-                field_width - w_marge < w < field_width + w_marge):
+            field_width - w_marge < w < field_width + w_marge
+        ):
             cv2.rectangle(actual_screen, (x, y), (x + w, y + h), valid_results, 2)
 
             count += 1
 
     display_full_screen(actual_screen, "Elements trouves", seconds)
 
-
-
-    if (save):
-        ag_take_screenshot(screencast_path)
+    if save:
+        ag_take_screenshot(screencast_path, save_format="file")
 
     return count
+
 
 def display_full_screen(image, window_name="FullScreenWindow", wait_time=0):
     """
@@ -796,7 +870,10 @@ def display_full_screen(image, window_name="FullScreenWindow", wait_time=0):
     cv2.waitKey(wait_time * 1000)
     cv2.destroyAllWindows()
 
-def check_elements_bg_inv(field_width, field_height, w_marge=None, h_marge=None, seconds=0, project="check"):
+
+def check_elements_bg_inv(
+    field_width, field_height, w_marge=None, h_marge=None, seconds=0, project="check"
+):
     """
     affiche les résultats (bounding boxes)
     :param field_width: largeur de l'élément recherché
@@ -840,32 +917,41 @@ def check_elements_bg_inv(field_width, field_height, w_marge=None, h_marge=None,
 
     # threshed = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 2)
     threshed = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    display_full_screen(threshed, "Elements threshed", seconds*5)
+    display_full_screen(threshed, "Elements threshed", seconds * 5)
 
-
-    cnts, hierarchy = cv2.findContours(threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, hierarchy = cv2.findContours(
+        threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+    )
     hierarchy = hierarchy[0]
 
     highest_levels = find_highest_hierarchy_level(hierarchy)
     max_hierarchy_level = max(highest_levels)
-    highest_hierarchy_contours = extract_highest_level_contours(cnts, highest_levels, max_hierarchy_level)
-    highest_hierarchy_contours = sorted(highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0])
+    highest_hierarchy_contours = extract_highest_level_contours(
+        cnts, highest_levels, max_hierarchy_level
+    )
+    highest_hierarchy_contours = sorted(
+        highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0]
+    )
 
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
         cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 2)
 
         if (field_height - h_marge < h < field_height + h_marge) and (
-                field_width - w_marge < w < field_width + w_marge):
+            field_width - w_marge < w < field_width + w_marge
+        ):
             cv2.rectangle(actual_screen, (x, y), (x + w, y + h), valid_results, 2)
 
             count += 1
 
-    display_full_screen(actual_screen, "Elements trouves", seconds*5)
+    display_full_screen(actual_screen, "Elements trouves", seconds * 5)
 
     return count
 
-def check_text(text, place=-1, sensitivy=False, seconds=0, project="check_text", save=False):
+
+def check_text(
+    text, place=-1, sensitivy=False, seconds=0, project="check_text", save=False
+):
     """
     affiche les occurences (bouding boxes)
     :param text: caractères cherchés
@@ -880,3 +966,24 @@ def check_text(text, place=-1, sensitivy=False, seconds=0, project="check_text",
     initialize(project)
     screencast_path = ag_take_screenshot(project)
     actual_screen = cv2.imread(screencast_path)
+
+
+def write_in_file(file, text):
+    """
+    stocke les coordonnées des bounding boxes
+    :param file: fichier
+    :param text: texte à écrire
+    """
+    with open(file, "a") as f:
+        f.write(text)
+
+
+def identificate_the_current_page(name):
+    """
+    identifie le nom de la page courante en accédant à l'url
+    par exemple: https://opensource-demo.orangehrmlive.com/web/index.php/pim/viewEmployeeList
+    retournera : web/index.php/pim/viewEmployeeList
+    utiliser du regex afin de ne pas avoir à modifier la fonction à chaque fois, ne gardant que ce qui se trouve après .com
+    :return: l'identifiant de la page actuelle
+    """
+    return name
