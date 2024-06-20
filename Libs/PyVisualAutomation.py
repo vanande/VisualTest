@@ -29,7 +29,7 @@ from PIL import Image
 import pytesseract
 import numpy as np
 import re
-
+import sys
 
 # Global Variables
 MOUSE_MOVE_SPEED = 0
@@ -68,16 +68,19 @@ def set_timeout(timeout):
     global TIMEOUT
     TIMEOUT = timeout
 
-
-def scroll_down(occurences):
-    for _ in range(occurences):
-        pyautogui.scroll(-200)
-
-
-def scroll_up(occurences):
-    for _ in range(occurences):
-        pyautogui.scroll(200)
-
+def scroll(occurences=1, direction="down", lenght=200):
+    """
+    effectue des scrolls
+    :param occurences: nombre de scrolls
+    :param direction: direction du scroll
+    :param lenght: longueur du scroll
+    """
+    if direction == "down":
+        for _ in range(occurences):
+            pyautogui.scroll(-lenght)
+    elif direction == "up":
+        for _ in range(occurences):
+            pyautogui.scroll(lenght)
 
 def set_active_app(app):
     """
@@ -96,6 +99,8 @@ def initialize(app):
     """
     initialise les variables globales
     :param app: nom de l'application
+    !! Essentiel pour lancer l'automatisation
+    ?? app sera le nom du dossier principal
     """
     global MOUSE_MOVE_SPEED, IMAGES, SCREENSHOT, TAKE_SCREENSHOT, CONFIDENCE, TIMEOUT, TESSERACT, WH_ACTIVE, HEIGHT, WIDTH, CONTINUE_ON_ERROR
     logging.config.fileConfig(os.path.join(os.getcwd(), "logging.conf"))
@@ -123,20 +128,18 @@ def close_existing_window():
         press("enter")
         WH_ACTIVE = None
 
-
 def run_application(app):
     logging.debug(f"Launch {app}")
     Popen(app, shell=True)
 
 
-def run_chrome(url, wait_time=3):
+def run_nav(url, nav="C:\\Program Files\\Google\\Chrome\\Application\\Chrome", wait_time=3):
     """
     lance une nouvelle fenêtre de chrome en mode privé
-    :param url: url à ouvrir
+    :param url: url à ouvrir (chrome par défaut)
     !! à adapter en fonction de l'emplacement de chrome sur le poste
-    ++ plus de modularité en ajoutant des arguments à la fonction (ex: chemin de chrome, mode privé, fenêtre maximisée)
     """
-    cmd = f'"C:\\Program Files\\Google\\Chrome\\Application\\Chrome" -aggressive-cache-discard -new-window -incognito -start-maximized "{url}"'
+    cmd = f'{nav} -aggressive-cache-discard -new-window -incognito -start-maximized "{url}"'
     logging.debug(f"Launch {url}")
     Popen(cmd, show="maximize", priority=0)
     time.sleep(wait_time)
@@ -163,11 +166,11 @@ def resize(h, w):
         time.sleep(3)
 
 
-def window_close():
-    global WH_ACTIVE
-    with pyautogui.hold("alt"):
-        pyautogui.press("f4")
-    WH_ACTIVE = None
+# def window_close():
+#     global WH_ACTIVE
+#     with pyautogui.hold("alt"):
+#         pyautogui.press("f4")
+#     WH_ACTIVE = None
 
 
 def close_tab():
@@ -184,12 +187,23 @@ def page_up():
 
 
 def clear_input():
+    """
+    vide l'intégralité du champ de saisie
+    ?? ctrl + a = sélectionne tout, delete = supprime
+    """
     with pyautogui.hold("ctrl"):
         pyautogui.press("a")
     pyautogui.press("delete")
 
 
-def dt_fr(dt_sep, time_sep):
+def dt_fr(dt_sep="-", time_sep=":"):
+    """
+    date et heure formatées
+    :param dt_sep: séparateur de date
+    :param time_sep: séparateur de temps
+    :return: date et heure formatées
+    ?? au format : "2021-01-01T12:00:00"
+    """
     return datetime.now().strftime(f"%Y{dt_sep}%m{dt_sep}%dT%H{time_sep}%M{time_sep}%S")
 
 
@@ -372,7 +386,7 @@ def click_on_image_offset(image_name, x, y):
     :param image_name: nom de l'image
     :param x: décalage en x
     :param y: décalage en y
-    !! à remplacer, solution non optimale
+    ++ à remplacer, solution non optimale
     """
     x, y = int(x), int(y)
     image = find_image(image_name, TIMEOUT)
@@ -415,6 +429,7 @@ def type_text(text, clear=False):
     écrit du texte
     :param text: texte à écrire
     :param clear: efface le champ avant d'écrire, par défaut False
+    ?? adapté pour écrire une adresse mail
     """
     logging.debug(f"Type text: {text}")
     if clear:
@@ -453,28 +468,38 @@ def move_mouse_at(x, y, offset=False):
     logging.debug(f"Mouse moved to {X}, {Y}")
 
 
-def ag_take_screenshot(name, save_format=""):
+def ag_take_screenshot(name, save_format="", add_ts=False):
     """
     prend un screenshot
     :param name: nom du fichier ou du dossier de sauvegarde
     :param save_format: format dans lequel on souhaite sauvegarder (pas de sauvegarde par défaut)
+    : param add_ts: ajoute un timestamp au nom du fichier
     :return: chemin du fichier
+    ?? ne garde que le nom du fichier, pas le chemin complet
     """
+
+    name = name.split(".")[0]
+
+
+    if add_ts:
+        name = f"{name}-{dt_fr('', '')}"
+    else:
+        name = f"{name}"
 
     if save_format == "file":
         im1 = pyautogui.screenshot(region=REGION)
-        file_path = os.path.join(SCREENSHOT, f"{name}-{dt_fr('', '')}.png")
+        file_path = os.path.join(SCREENSHOT, f"{name}.png")
         im1.save(file_path)
         return file_path
-
+    
     elif save_format == "dir":
         im1 = pyautogui.screenshot(region=REGION)
         save_dir = os.path.join(SCREENSHOT, name)
         os.makedirs(save_dir, exist_ok=True)
-        file_path = os.path.join(save_dir, f"{name}-{dt_fr('', '')}.png")
+        file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
-
+    
     else:
         im1 = pyautogui.screenshot(region=REGION)
         if os.path.isdir(os.path.join(SCREENSHOT, name)):
@@ -482,14 +507,38 @@ def ag_take_screenshot(name, save_format=""):
         else:
             save_dir = os.path.join(SCREENSHOT, os.path.basename(name))
         os.makedirs(save_dir, exist_ok=True)
-        file_path = os.path.join(save_dir, f"{name}-{dt_fr('', '')}.png")
+        file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
+    
+# def ag_take_region_screenshot(region, name):
+#     """
+#     prend un screenshot d'une région spécifique
+#     :param region: la région de l'écran à capturer
+#     :param name: nom du fichier ou du dossier de sauvegarde
+#     :return: chemin du fichier
+#     ?? utilisée pour stocker les éléments dans le fichier correspondant
+#     ?? utilisation du regex pour trouver le dossier correspondant aux éléments, ex:
+#         - "Navbar31.png" sera stocké dans "Navbar"
+#     """
+#     global WIDTH, HEIGHT
+#     im1 = pyautogui.screenshot(region=region)
 
+#     base_name = re.sub(r"\d+$", "", name)
+#     base_name = f"{base_name}_{WIDTH}x{HEIGHT}"
+#     base_dir = os.path.join(IMAGES, base_name)
 
-def ag_take_region_screenshot(region, name):
+#     if not os.path.exists(base_dir):
+#         os.makedirs(base_dir)
+
+#     file_path = os.path.join(base_dir, f"{name}.png")
+
+#     im1.save(file_path)
+#     return file_path
+
+def take_element_screenshot(region, name):
     """
-    prend un screenshot d'une région spécifique
+    spécifique à la prise de screenshot d'éléments
     :param region: la région de l'écran à capturer
     :param name: nom du fichier ou du dossier de sauvegarde
     :return: chemin du fichier
@@ -561,7 +610,6 @@ def thick_font(image, shape):
     image = cv2.dilate(image, kernel, iterations=1)
     image = cv2.bitwise_not(image)
     return image
-
 
 def find_highest_hierarchy_level(hierarchy):
     """
@@ -685,6 +733,7 @@ def click_on_element(folder, image, confidence=None, timeout=None):
     return element
 
 
+
 def store_elements(
     project,
     element_searched,
@@ -705,6 +754,7 @@ def store_elements(
     :param i: indice d'identification des éléments
     :return: nombre d'éléments trouvés
     """
+    global IMAGES, SCREENSHOT
 
     if w_marge is None:
         w_marge = field_width * 0.1
@@ -712,23 +762,78 @@ def store_elements(
     if h_marge is None:
         h_marge = field_height * 0.1
 
-    initialize(project)
     screencast_path = ag_take_screenshot(element_searched)
     actual_screen = cv2.imread(screencast_path)
     os.remove(screencast_path)
 
     count = 0
 
-    gray = cv2.cvtColor(actual_screen, cv2.COLOR_BGR2GRAY)
+    # Traitements de l'image pour l'identification des éléments
+    threshed = process_image(actual_screen)
+
+    # Recherche des contours, identifie uniquement les plus internes
+    cnts, hierarchy = find_contours(threshed)
+
+    # Traitements des contours pour identifier les éléments
+    highest_hierarchy_contours = process_contours(hierarchy, cnts)
+
+    for c in highest_hierarchy_contours:
+        x, y, w, h = cv2.boundingRect(c)
+
+        if (field_height - h_marge < h < field_height + h_marge) and (
+            field_width - w_marge < w < field_width + w_marge
+        ):
+            take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+
+            i += 1
+            count += 1
+
+    return count
+
+def process_image(image, show_process=False, seconds=1):
+    """
+    traitements de l'image pour l'identification des éléments
+    :param image: image à traiter
+    :param show_process: affiche les différentes étapes du traitement
+    :param seconds: temps d'affichage
+    :return: image traitée
+    """
+    # Convertit en nuance de gris
+    gray = grayscale(image)
+    # Rend le texte plus gras
     thicked = thick_font(gray, 8)
+    # Floute l'image
     blurred = cv2.GaussianBlur(thicked, (9, 1), 0)
+    # Seuil d'OTSU
     threshed = cv2.threshold(blurred, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_OTSU)[1]
+    # threshed = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_OTSU, 11, 2)[1]
 
+    if show_process:
+        display_full_screen(gray, "Gray", seconds)
+        display_full_screen(thicked, "Thicked", seconds)
+        display_full_screen(blurred, "Blurred", seconds)
+        display_full_screen(threshed, "Threshed", seconds)
+
+    return threshed
+
+def find_contours(image):
+    """
+    trouve les contours
+    :param image: image
+    :return: contours
+    """
     cnts, hierarchy = cv2.findContours(
-        threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
+        image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
     )
-    hierarchy = hierarchy[0]
+    return cnts, hierarchy[0]
 
+def process_contours(hierarchy, cnts):
+    """
+    traite les contours
+    :param hierarchy: hiérarchie des contours
+    :param cnts: contours
+    :return: contours les plus élevés
+    """
     highest_levels = find_highest_hierarchy_level(hierarchy)
     max_hierarchy_level = max(highest_levels)
     highest_hierarchy_contours = extract_highest_level_contours(
@@ -737,20 +842,7 @@ def store_elements(
     highest_hierarchy_contours = sorted(
         highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0]
     )
-
-    for c in highest_hierarchy_contours:
-        x, y, w, h = cv2.boundingRect(c)
-
-        if (field_height - h_marge < h < field_height + h_marge) and (
-            field_width - w_marge < w < field_width + w_marge
-        ):
-            ag_take_region_screenshot((x, y, w, h), f"{element_searched}{i}")
-
-            i += 1
-            count += 1
-
-    return count
-
+    return highest_hierarchy_contours
 
 def check_elements(
     field_width,
@@ -758,8 +850,9 @@ def check_elements(
     w_marge=None,
     h_marge=None,
     seconds=0,
-    project="check_element",
+    element_searched="check_element",
     save=False,
+    show_process=False,
 ):
     """
     affiche les résultats (bounding boxes)
@@ -770,87 +863,84 @@ def check_elements(
     :param seconds: temps d'affichage (infini par défaut)
     :param project: dossier dans lequel il sera stocké (puis supprimé)
     :param save: sauvegarde des résultats (bouding boxes)
+    :param show_process: affiche les différentes étapes du traitement
     :return: nombre d'éléments trouvés
+    ?? A pour but de vérifier la présence des éléments sur l'écran
     """
+    global IMAGE, SCREENSHOT
 
+    count = 0
+    i = 0
+    valid_results = (36, 255, 12)  # rgb
+    false_results = (220, 220, 220)
+    numbers = (0, 0, 255)
+    font_style = cv2.FONT_HERSHEY_SCRIPT_SIMPLEX
+    font_size = 0.6
+    font_weight = 2
+    min_rect = 10
+
+    screencast_path = ag_take_screenshot(element_searched) # prend un screenshot et stocke le chemin
+    actual_screen = cv2.imread(screencast_path)
+    os.remove(screencast_path) # supprime le screenshot, devenu inutile
+
+    # Attribue une marge de 10% si aucune marge n'est spécifiée
     if w_marge is None:
         w_marge = field_width * 0.1
 
     if h_marge is None:
         h_marge = field_height * 0.1
 
-    count = 0
-    i = 0
-    valid_results = (36, 255, 12)  # rgb
-    false_results = (220, 220, 220)
+    # Traitements de l'image pour l'identification des éléments
+    threshed = process_image(actual_screen, show_process, seconds)
 
-    initialize(project)
-    screencast_path = ag_take_screenshot(project)
-    actual_screen = cv2.imread(screencast_path)
-    os.remove(screencast_path)
+     # Recherche des contours, identifie uniquement les plus internes
+    cnts, hierarchy = find_contours(threshed)
 
-    gray = cv2.cvtColor(actual_screen, cv2.COLOR_BGR2GRAY)
-    # display_full_screen(gray, "Elements grises", seconds)
+    # Traitements des contours pour identifier les éléments
+    highest_hierarchy_contours = process_contours(hierarchy, cnts)
 
-    thicked = thick_font(gray, 8)
-    # display_full_screen(thicked, "Elements rendus gras", seconds)
-
-    blurred = cv2.GaussianBlur(thicked, (9, 1), 0)
-    # display_full_screen(blurred, "Elements floutes", seconds)
-
-    threshed = cv2.threshold(blurred, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_OTSU)[1]
-    # threshed = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_OTSU, 11, 2)[1]
-    # display_full_screen(threshed, "Elements threshed", seconds)
-
-    cnts, hierarchy = cv2.findContours(
-        threshed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-    )
-    hierarchy = hierarchy[0]
-
-    highest_levels = find_highest_hierarchy_level(hierarchy)
-    max_hierarchy_level = max(highest_levels)
-    highest_hierarchy_contours = extract_highest_level_contours(
-        cnts, highest_levels, max_hierarchy_level
-    )
-    highest_hierarchy_contours = sorted(
-        highest_hierarchy_contours, key=lambda x: cv2.boundingRect(x)[0]
-    )
-
-    # with open("points.csv", "w") as f:
-    #     f.write("")
-    #     # f.write("I;X;Y;W;H\n")
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
-        write_in_file(f"{screencast_path}_points.csv", f"{i};{x};{y};{w};{h}\n")
+        # enlève l'extension
+        csv_path = screencast_path.split(".")[0] 
+        # id, x, y, w, h
+        write_in_file(f"{csv_path}_points.csv", f"{i};{x};{y};{w};{h}\n") 
 
-        if w < 10 or h < 10:
+        # ignore les élèments trop petits
+        if w < min_rect or h < min_rect:
             continue
 
-        cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 2)
-        i += 1
-
+        # affiche le numéro de l'élément
         cv2.putText(
             actual_screen,
             str(i),
             (x + int(w / 2), y + int(h / 2)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (0, 0, 255),
-            2,
+            font_style,
+            font_size,
+            numbers,
+            font_weight,
         )
 
+        # affiche les bounding boxes en gris
+        cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 1)
+        i += 1
+        
+        # vérifie les dimensions
         if (field_height - h_marge < h < field_height + h_marge) and (
             field_width - w_marge < w < field_width + w_marge
         ):
+            # change la couleur des bounding boxes valides
             cv2.rectangle(actual_screen, (x, y), (x + w, y + h), valid_results, 2)
 
             count += 1
 
+    # affiche les résultats
     display_full_screen(actual_screen, "Elements trouves", seconds)
 
+    # sauvegarde dans le fichier indiqué par "element_searched"
     if save:
-        ag_take_screenshot(screencast_path, save_format="file")
+        cv2.imwrite(f"{screencast_path}", actual_screen)
 
     return count
 
@@ -968,22 +1058,12 @@ def check_text(
     actual_screen = cv2.imread(screencast_path)
 
 
-def write_in_file(file, text):
+def write_in_file(file, text, mode="a"):
     """
     stocke les coordonnées des bounding boxes
     :param file: fichier
     :param text: texte à écrire
     """
-    with open(file, "a") as f:
+    with open(file, mode) as f:
         f.write(text)
 
-
-def identificate_the_current_page(name):
-    """
-    identifie le nom de la page courante en accédant à l'url
-    par exemple: https://opensource-demo.orangehrmlive.com/web/index.php/pim/viewEmployeeList
-    retournera : web/index.php/pim/viewEmployeeList
-    utiliser du regex afin de ne pas avoir à modifier la fonction à chaque fois, ne gardant que ce qui se trouve après .com
-    :return: l'identifiant de la page actuelle
-    """
-    return name
