@@ -272,6 +272,20 @@ def get_images(image_name):
     else:
         os.makedirs(folder)
         return []
+    
+def get_screenshot(screenshot_name):
+    """
+    récupère les screenshots
+    :param screenshot_name: nom du screenshot
+    :return: liste des screenshots
+    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
+    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
+    """
+    global SCREENSHOT
+    
+    folder = os.path.join(SCREENSHOT, screenshot_name)
+    file = folder + "\\" + screenshot_name + ".PNG"
+    return file
 
 
 def find_image(image_name, timeout, confidence):
@@ -312,6 +326,35 @@ def find_image(image_name, timeout, confidence):
 
     ag_take_screenshot(IMAGES + "\\" + image_name)
     handle_image_not_found(image_name)
+
+def find_screenshot(screenshot_name, timeout, confidence):
+    """
+    cherche un screenshot sur l'écran
+    :param screenshot_name: nom du screenshot
+    :param timeout: temps d'attente
+    :param confidence: seuil de confiance
+    :return: coordonnées du screenshot
+    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
+    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
+    """
+    global SCREENSHOT
+
+    timeout = int(timeout)
+    screenshot = get_screenshot(screenshot_name)
+
+    end_time = time.time() + timeout
+
+    while time.time() < end_time:
+        found = locate_image_on_screen(screenshot, confidence)
+        
+        if found:
+            return True
+    
+    raise Exception(f"Screenshot not found: {screenshot_name}") 
+
+    return False
+
+    
 
 
 def handle_image_not_found(image_name):
@@ -367,6 +410,26 @@ def wait_vanish(image_name, timeout):
         logging.debug(f"Image vanished: {image_name}")
     return not found
 
+def wait_page(screenshot_name, timeout=TIMEOUT, confidence=0.3):
+    """
+    attend que la page attendue soit totalement chargée
+    :param image_name: nom de l'image
+    :param timeout: temps d'attente
+    :param confidence: seuil de confiance
+    exemple: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
+    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
+    """
+
+    found = find_screenshot(screenshot_name, timeout, confidence)
+
+    if found:
+        logging.debug(f"Page {screenshot_name} found")
+        print(f"Page {screenshot_name} found")
+    else:
+        logging.debug(f"Page {screenshot_name} not found")
+        print(f"Page {screenshot_name} not found")
+
+    return found
 
 def click_on_image(image_name, confidence=None):
     if confidence is None:
@@ -378,6 +441,27 @@ def click_on_image(image_name, confidence=None):
         pyautogui.moveTo(image[0], image[1], MOUSE_MOVE_SPEED)
         pyautogui.click(image)
     return image
+
+def click_on_id(id, element_searched):
+    """
+    si fichier déjà existant, le supprime, puis ouvre le fichier csv, accède aux coordonnées (x, y) puis clique dessus
+    :param id: identifiant de l'élément
+    :param element_searched: nom du fichier csv
+    :return: coordonnées de l'élément
+    """
+
+    with open(f"{SCREENSHOT}\\{element_searched}\\{element_searched}_points.csv", "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            # format: id; (x, y)
+            if line.startswith(f"{id};"):
+                coords = line.split(";")[1]
+                x, y = coords.split(",")
+                # supprime les parenthèses
+                x = x[1:]
+                y = y[:-2]
+                click_at(int(x), int(y))
+                return int(x), int(y)
 
 
 def click_on_image_offset(image_name, x, y):
@@ -780,10 +864,12 @@ def store_elements(
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
+        take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+
         if (field_height - h_marge < h < field_height + h_marge) and (
             field_width - w_marge < w < field_width + w_marge
         ):
-            take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+            # take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
 
             i += 1
             count += 1
@@ -899,13 +985,18 @@ def check_elements(
     # Traitements des contours pour identifier les éléments
     highest_hierarchy_contours = process_contours(hierarchy, cnts)
 
+    # enlève l'extension
+    csv_path = screencast_path.split(".")[0] 
+
+    # vérifie si le fichier existe, sinon le supprime
+    if os.path.isfile(f"{csv_path}_points.csv"):
+        os.remove(f"{csv_path}_points.csv")
+
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
-        # enlève l'extension
-        csv_path = screencast_path.split(".")[0] 
-        # id, x, y, w, h
-        write_in_file(f"{csv_path}_points.csv", f"{i};{x};{y};{w};{h}\n") 
+        # id, x, y, w, h, center
+        write_in_file(f"{csv_path}_points.csv", f"{i};{x + int(w / 2), y + int(h / 2)}\n") 
 
         # ignore les élèments trop petits
         if w < min_rect or h < min_rect:
@@ -941,6 +1032,7 @@ def check_elements(
     # sauvegarde dans le fichier indiqué par "element_searched"
     if save:
         cv2.imwrite(f"{screencast_path}", actual_screen)
+        print(f"Results saved in {screencast_path}")
 
     return count
 
@@ -957,7 +1049,8 @@ def display_full_screen(image, window_name="FullScreenWindow", wait_time=0):
     cv2.namedWindow(window_name, cv2.WND_PROP_FULLSCREEN)
     cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.imshow(window_name, image)
-    cv2.waitKey(wait_time * 1000)
+    if wait_time != -1:
+        cv2.waitKey(wait_time * 1000)
     cv2.destroyAllWindows()
 
 
