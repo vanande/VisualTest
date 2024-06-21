@@ -272,17 +272,15 @@ def get_images(image_name):
     else:
         os.makedirs(folder)
         return []
-    
+
 def get_screenshot(screenshot_name):
     """
     récupère les screenshots
     :param screenshot_name: nom du screenshot
     :return: liste des screenshots
-    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
     global SCREENSHOT
-    
+
     folder = os.path.join(SCREENSHOT, screenshot_name)
     file = folder + "\\" + screenshot_name + ".PNG"
     return file
@@ -334,10 +332,7 @@ def find_screenshot(screenshot_name, timeout, confidence):
     :param timeout: temps d'attente
     :param confidence: seuil de confiance
     :return: coordonnées du screenshot
-    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
-    global SCREENSHOT
 
     timeout = int(timeout)
     screenshot = get_screenshot(screenshot_name)
@@ -346,15 +341,11 @@ def find_screenshot(screenshot_name, timeout, confidence):
 
     while time.time() < end_time:
         found = locate_image_on_screen(screenshot, confidence)
-        
+
         if found:
             return True
-    
-    raise Exception(f"Screenshot not found: {screenshot_name}") 
 
-    return False
-
-    
+    raise Exception(f"Screenshot not found: {screenshot_name}")
 
 
 def handle_image_not_found(image_name):
@@ -379,11 +370,12 @@ def locate_image_on_screen(file, confidence):
     :return: coordonnées de l'image
     """
     try:
-        return pyautogui.locateOnScreen(file, region=REGION, confidence=confidence)
+        found = pyautogui.locateOnScreen(file, region=REGION, confidence=confidence)
     except Exception as e:
         logging.debug(f"Image not found due to error: {e}")
         return None
 
+    return found
 
 def wait_vanish(image_name, timeout):
     """
@@ -410,24 +402,20 @@ def wait_vanish(image_name, timeout):
         logging.debug(f"Image vanished: {image_name}")
     return not found
 
-def wait_page(screenshot_name, timeout=TIMEOUT, confidence=0.3):
+def wait_page(screenshot_name, timeout=TIMEOUT, confidence=0.8):
     """
     attend que la page attendue soit totalement chargée
     :param image_name: nom de l'image
     :param timeout: temps d'attente
     :param confidence: seuil de confiance
-    exemple: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
 
     found = find_screenshot(screenshot_name, timeout, confidence)
 
     if found:
         logging.debug(f"Page {screenshot_name} found")
-        print(f"Page {screenshot_name} found")
     else:
         logging.debug(f"Page {screenshot_name} not found")
-        print(f"Page {screenshot_name} not found")
 
     return found
 
@@ -575,7 +563,7 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(SCREENSHOT, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
     elif save_format == "dir":
         im1 = pyautogui.screenshot(region=REGION)
         save_dir = os.path.join(SCREENSHOT, name)
@@ -583,7 +571,7 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
     else:
         im1 = pyautogui.screenshot(region=REGION)
         if os.path.isdir(os.path.join(SCREENSHOT, name)):
@@ -594,7 +582,7 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
 # def ag_take_region_screenshot(region, name):
 #     """
 #     prend un screenshot d'une région spécifique
@@ -828,7 +816,7 @@ def store_elements(
     i=0,
 ):
     """
-    recherche les éléments correspondant aux tailles indiquées
+    recherche les éléments correspondants aux dimensions indiquées et les sauvegarde
     :param project: projet (nom du dossier principal)
     :param element_searched: éléments recherchés (nom du sous-dossier)
     :param field_width: largeur de l'élément recherché
@@ -864,12 +852,12 @@ def store_elements(
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
-        take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+        # take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
 
         if (field_height - h_marge < h < field_height + h_marge) and (
             field_width - w_marge < w < field_width + w_marge
         ):
-            # take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+            take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
 
             i += 1
             count += 1
@@ -931,13 +919,13 @@ def process_contours(hierarchy, cnts):
     return highest_hierarchy_contours
 
 def check_elements(
-    field_width,
-    field_height,
-    w_marge=None,
-    h_marge=None,
-    seconds=0,
+    field_width=0,
+    field_height=0,
+    w_marge=0,
+    h_marge=0,
+    seconds=-1,
     element_searched="check_element",
-    save=False,
+    save=True,
     show_process=False,
 ):
     """
@@ -986,7 +974,7 @@ def check_elements(
     highest_hierarchy_contours = process_contours(hierarchy, cnts)
 
     # enlève l'extension
-    csv_path = screencast_path.split(".")[0] 
+    csv_path = screencast_path.split(".")[0]
 
     # vérifie si le fichier existe, sinon le supprime
     if os.path.isfile(f"{csv_path}_points.csv"):
@@ -996,7 +984,7 @@ def check_elements(
         x, y, w, h = cv2.boundingRect(c)
 
         # id, x, y, w, h, center
-        write_in_file(f"{csv_path}_points.csv", f"{i};{x + int(w / 2), y + int(h / 2)}\n") 
+        write_in_file(f"{csv_path}_points.csv", f"{i};{x + int(w / 2), y + int(h / 2)}\n")
 
         # ignore les élèments trop petits
         if w < min_rect or h < min_rect:
@@ -1016,7 +1004,7 @@ def check_elements(
         # affiche les bounding boxes en gris
         cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 1)
         i += 1
-        
+
         # vérifie les dimensions
         if (field_height - h_marge < h < field_height + h_marge) and (
             field_width - w_marge < w < field_width + w_marge
@@ -1032,7 +1020,6 @@ def check_elements(
     # sauvegarde dans le fichier indiqué par "element_searched"
     if save:
         cv2.imwrite(f"{screencast_path}", actual_screen)
-        print(f"Results saved in {screencast_path}")
 
     return count
 

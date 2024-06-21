@@ -19,7 +19,7 @@ w_marge = 5
 h_marge = 5
 
 # Affiche les éléments correspondants aux dimensions/marges données
-elements_found = va.check_elements(field_width, field_height, w_marge, h_marge, 2, save=True, project="pim")
+elements_found = va.check_elements(field_width, field_height, w_marge, h_marge, project=project)
 
 # with open("points.csv", "r") as f:
 #     content = f.read().strip()
