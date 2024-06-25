@@ -1180,6 +1180,7 @@ def write_in_file(file, text, mode="a"):
         f.write(text)
 
 
+
 def add_point(file, x, y):
     """
     ajoute un point dans le fichier .csv
