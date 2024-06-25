@@ -68,6 +68,7 @@ def set_timeout(timeout):
     global TIMEOUT
     TIMEOUT = timeout
 
+
 def scroll(occurences=1, direction="down", lenght=200):
     """
     effectue des scrolls
@@ -82,6 +83,7 @@ def scroll(occurences=1, direction="down", lenght=200):
         for _ in range(occurences):
             pyautogui.scroll(lenght)
 
+
 def set_active_app(app):
     """
     définit le répertoire des images
@@ -89,7 +91,7 @@ def set_active_app(app):
     """
     global IMAGES
     with open(
-        os.path.join(os.getcwd(), "Libs", "PyVisualAutomation.yaml"), "r"
+            os.path.join(os.getcwd(), "Libs", "PyVisualAutomation.yaml"), "r"
     ) as file:
         yaml_config = yaml.safe_load(file)
         IMAGES = os.path.join(yaml_config["IMAGES"], app)
@@ -106,7 +108,7 @@ def initialize(app):
     logging.config.fileConfig(os.path.join(os.getcwd(), "logging.conf"))
     set_active_app(app)
     with open(
-        os.path.join(os.getcwd(), "Libs", "PyVisualAutomation.yaml"), "r"
+            os.path.join(os.getcwd(), "Libs", "PyVisualAutomation.yaml"), "r"
     ) as file:
         yaml_config = yaml.safe_load(file)
         pyautogui.FAILSAFE = yaml_config["FAILSAFE"]
@@ -124,9 +126,11 @@ def initialize(app):
 def close_existing_window():
     global WH_ACTIVE
     if WH_ACTIVE:
+        print("Closing existing window")
         WH_ACTIVE.close()
         press("enter")
         WH_ACTIVE = None
+
 
 def run_application(app):
     logging.debug(f"Launch {app}")
@@ -136,7 +140,9 @@ def run_application(app):
 def run_nav(url, nav="C:\\Program Files\\Google\\Chrome\\Application\\Chrome", wait_time=3):
     """
     lance une nouvelle fenêtre de chrome en mode privé
-    :param url: url à ouvrir (chrome par défaut)
+    :param url: url à ouvrir
+    :param nav: navigateur (chrome par défaut)
+    :param wait_time: temps d'attente accordé
     !! à adapter en fonction de l'emplacement de chrome sur le poste
     """
     cmd = f'{nav} -aggressive-cache-discard -new-window -incognito -start-maximized "{url}"'
@@ -166,11 +172,11 @@ def resize(h, w):
         time.sleep(3)
 
 
-# def window_close():
-#     global WH_ACTIVE
-#     with pyautogui.hold("alt"):
-#         pyautogui.press("f4")
-#     WH_ACTIVE = None
+def window_close():
+    global WH_ACTIVE
+    with pyautogui.hold("alt"):
+        pyautogui.press("f4")
+    WH_ACTIVE = None
 
 
 def close_tab():
@@ -212,13 +218,14 @@ def switch_to(window_title, maximize):
     rend actif la fenêtre
     :param window_title: titre de la fenêtre
     :param maximize: maximiser la fenêtre
+    /!\ Souci avec la fonction, à creuser
     """
     global WH_ACTIVE, TIMEOUT, LEFT, TOP, WIDTH, HEIGHT, REGION, CONTINUE_ON_ERROR
 
-    title = ""
     i = 0
     while i < TIMEOUT:
         titles = gw.getAllTitles()
+        print(titles)
         for title in titles:
             if window_title.lower() in title.lower():
                 logging.debug(f"Windows {title.encode()} found")
@@ -272,23 +279,22 @@ def get_images(image_name):
     else:
         os.makedirs(folder)
         return []
-    
+
+
 def get_screenshot(screenshot_name):
     """
     récupère les screenshots
     :param screenshot_name: nom du screenshot
     :return: liste des screenshots
-    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
     global SCREENSHOT
-    
+
     folder = os.path.join(SCREENSHOT, screenshot_name)
     file = folder + "\\" + screenshot_name + ".PNG"
     return file
 
 
-def find_image(image_name, timeout, confidence):
+def find_image(image_name, timeout, confidence=CONFIDENCE):
     """
     cherche une image sur l'écran
     :param image_name: nom de l'image
@@ -327,6 +333,7 @@ def find_image(image_name, timeout, confidence):
     ag_take_screenshot(IMAGES + "\\" + image_name)
     handle_image_not_found(image_name)
 
+
 def find_screenshot(screenshot_name, timeout, confidence):
     """
     cherche un screenshot sur l'écran
@@ -334,10 +341,7 @@ def find_screenshot(screenshot_name, timeout, confidence):
     :param timeout: temps d'attente
     :param confidence: seuil de confiance
     :return: coordonnées du screenshot
-    ex: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
-    global SCREENSHOT
 
     timeout = int(timeout)
     screenshot = get_screenshot(screenshot_name)
@@ -346,15 +350,11 @@ def find_screenshot(screenshot_name, timeout, confidence):
 
     while time.time() < end_time:
         found = locate_image_on_screen(screenshot, confidence)
-        
+
         if found:
             return True
-    
-    raise Exception(f"Screenshot not found: {screenshot_name}") 
 
-    return False
-
-    
+    raise Exception(f"Screenshot not found: {screenshot_name}")
 
 
 def handle_image_not_found(image_name):
@@ -379,10 +379,12 @@ def locate_image_on_screen(file, confidence):
     :return: coordonnées de l'image
     """
     try:
-        return pyautogui.locateOnScreen(file, region=REGION, confidence=confidence)
+        found = pyautogui.locateOnScreen(file, region=REGION, confidence=confidence)
     except Exception as e:
         logging.debug(f"Image not found due to error: {e}")
         return None
+
+    return found
 
 
 def wait_vanish(image_name, timeout):
@@ -398,7 +400,7 @@ def wait_vanish(image_name, timeout):
     while found and i < timeout:
         try:
             found = find_image(image_name, 5)
-        except:
+        except Exception as e:
             found = None
         i += 1
     if found:
@@ -410,26 +412,24 @@ def wait_vanish(image_name, timeout):
         logging.debug(f"Image vanished: {image_name}")
     return not found
 
-def wait_page(screenshot_name, timeout=TIMEOUT, confidence=0.3):
+
+def wait_page(screenshot_name, timeout=TIMEOUT, confidence=0.8):
     """
     attend que la page attendue soit totalement chargée
-    :param image_name: nom de l'image
+    :param screenshot_name: nom du screenshot
     :param timeout: temps d'attente
     :param confidence: seuil de confiance
-    exemple: C:\DVLP\VisualTest\temp\Dashboard\Dashboard.png
-    SCREENSHOT: 'C:\DVLP\VisualTest\temp'
     """
 
     found = find_screenshot(screenshot_name, timeout, confidence)
 
     if found:
         logging.debug(f"Page {screenshot_name} found")
-        print(f"Page {screenshot_name} found")
     else:
         logging.debug(f"Page {screenshot_name} not found")
-        print(f"Page {screenshot_name} not found")
 
     return found
+
 
 def click_on_image(image_name, confidence=None):
     if confidence is None:
@@ -441,6 +441,7 @@ def click_on_image(image_name, confidence=None):
         pyautogui.moveTo(image[0], image[1], MOUSE_MOVE_SPEED)
         pyautogui.click(image)
     return image
+
 
 def click_on_id(id, element_searched):
     """
@@ -492,20 +493,24 @@ def special_type(car):
     pyperclip.copy("")
 
 
-def prev_field():
+def prev_field(i = 1):
     """
     permet de naviguer entre les champs de saisie
+    :param i: nombre de champs à remonter
     ?? dans ce cas, le champs précédent
     """
-    with pyautogui.hold("shift"):
-        pyautogui.press("tab")
+    for _ in range(i):
+        with pyautogui.hold("shift"):
+            pyautogui.press("tab")
 
 
-def next_field():
+def next_field(i = 1):
     """
     ?? dans ce cas, le champs suivant
+    :param i: nombre de champs à descendre
     """
-    pyautogui.press("tab")
+    for _ in range(i):
+        pyautogui.press("tab")
 
 
 def type_text(text, clear=False):
@@ -557,13 +562,12 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
     prend un screenshot
     :param name: nom du fichier ou du dossier de sauvegarde
     :param save_format: format dans lequel on souhaite sauvegarder (pas de sauvegarde par défaut)
-    : param add_ts: ajoute un timestamp au nom du fichier
+    :param add_ts: ajoute un timestamp au nom du fichier
     :return: chemin du fichier
     ?? ne garde que le nom du fichier, pas le chemin complet
     """
 
     name = name.split(".")[0]
-
 
     if add_ts:
         name = f"{name}-{dt_fr('', '')}"
@@ -575,7 +579,7 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(SCREENSHOT, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
     elif save_format == "dir":
         im1 = pyautogui.screenshot(region=REGION)
         save_dir = os.path.join(SCREENSHOT, name)
@@ -583,7 +587,7 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
     else:
         im1 = pyautogui.screenshot(region=REGION)
         if os.path.isdir(os.path.join(SCREENSHOT, name)):
@@ -594,7 +598,8 @@ def ag_take_screenshot(name, save_format="", add_ts=False):
         file_path = os.path.join(save_dir, f"{name}.png")
         im1.save(file_path)
         return file_path
-    
+
+
 # def ag_take_region_screenshot(region, name):
 #     """
 #     prend un screenshot d'une région spécifique
@@ -695,6 +700,7 @@ def thick_font(image, shape):
     image = cv2.bitwise_not(image)
     return image
 
+
 def find_highest_hierarchy_level(hierarchy):
     """
     trouve le plus petit enfant pour chaque contour
@@ -758,6 +764,7 @@ def find_element(folder, image, confidence=None, timeout=None):
     """
     global IMAGES, TIMEOUT, CONFIDENCE, REGION
 
+    image_path = ""
     timeout = timeout if timeout is not None else TIMEOUT
     confidence = confidence if confidence is not None else CONFIDENCE
     end_time = time.time() + timeout
@@ -817,18 +824,17 @@ def click_on_element(folder, image, confidence=None, timeout=None):
     return element
 
 
-
 def store_elements(
-    project,
-    element_searched,
-    field_width,
-    field_height,
-    w_marge=None,
-    h_marge=None,
-    i=0,
+        project,
+        element_searched,
+        field_width,
+        field_height,
+        w_marge=None,
+        h_marge=None,
+        i=0,
 ):
     """
-    recherche les éléments correspondant aux tailles indiquées
+    recherche les éléments correspondants aux dimensions indiquées et les sauvegarde
     :param project: projet (nom du dossier principal)
     :param element_searched: éléments recherchés (nom du sous-dossier)
     :param field_width: largeur de l'élément recherché
@@ -864,17 +870,18 @@ def store_elements(
     for c in highest_hierarchy_contours:
         x, y, w, h = cv2.boundingRect(c)
 
-        take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+        # take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
 
         if (field_height - h_marge < h < field_height + h_marge) and (
-            field_width - w_marge < w < field_width + w_marge
+                field_width - w_marge < w < field_width + w_marge
         ):
-            # take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
+            take_element_screenshot((x, y, w, h), f"{element_searched}{i}")
 
             i += 1
             count += 1
 
     return count
+
 
 def process_image(image, show_process=False, seconds=1):
     """
@@ -902,6 +909,7 @@ def process_image(image, show_process=False, seconds=1):
 
     return threshed
 
+
 def find_contours(image):
     """
     trouve les contours
@@ -912,6 +920,7 @@ def find_contours(image):
         image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
     )
     return cnts, hierarchy[0]
+
 
 def process_contours(hierarchy, cnts):
     """
@@ -930,15 +939,17 @@ def process_contours(hierarchy, cnts):
     )
     return highest_hierarchy_contours
 
-def check_elements(
-    field_width,
-    field_height,
-    w_marge=None,
-    h_marge=None,
-    seconds=0,
-    element_searched="check_element",
-    save=False,
-    show_process=False,
+
+def check_ids(
+        field_width=0,
+        field_height=0,
+        w_marge=0,
+        h_marge=0,
+        seconds=-1,
+        element_searched="check_element",
+        save=True,
+        show_process=False,
+        open_file=True
 ):
     """
     affiche les résultats (bounding boxes)
@@ -947,13 +958,13 @@ def check_elements(
     :param w_marge: marge de largeur
     :param h_marge: marge de hauteur
     :param seconds: temps d'affichage (infini par défaut)
-    :param project: dossier dans lequel il sera stocké (puis supprimé)
+    :param element_searched: dossier dans lequel il sera stocké (puis supprimé)
     :param save: sauvegarde des résultats (bouding boxes)
     :param show_process: affiche les différentes étapes du traitement
     :return: nombre d'éléments trouvés
     ?? A pour but de vérifier la présence des éléments sur l'écran
     """
-    global IMAGE, SCREENSHOT
+    global IMAGES, SCREENSHOT
 
     count = 0
     i = 0
@@ -965,9 +976,9 @@ def check_elements(
     font_weight = 2
     min_rect = 10
 
-    screencast_path = ag_take_screenshot(element_searched) # prend un screenshot et stocke le chemin
+    screencast_path = ag_take_screenshot(element_searched)  # prend un screenshot et stocke le chemin
     actual_screen = cv2.imread(screencast_path)
-    os.remove(screencast_path) # supprime le screenshot, devenu inutile
+    os.remove(screencast_path)  # supprime le screenshot, devenu inutile
 
     # Attribue une marge de 10% si aucune marge n'est spécifiée
     if w_marge is None:
@@ -979,14 +990,14 @@ def check_elements(
     # Traitements de l'image pour l'identification des éléments
     threshed = process_image(actual_screen, show_process, seconds)
 
-     # Recherche des contours, identifie uniquement les plus internes
+    # Recherche des contours, identifie uniquement les plus internes
     cnts, hierarchy = find_contours(threshed)
 
     # Traitements des contours pour identifier les éléments
     highest_hierarchy_contours = process_contours(hierarchy, cnts)
 
     # enlève l'extension
-    csv_path = screencast_path.split(".")[0] 
+    csv_path = screencast_path.split(".")[0]
 
     # vérifie si le fichier existe, sinon le supprime
     if os.path.isfile(f"{csv_path}_points.csv"):
@@ -996,7 +1007,7 @@ def check_elements(
         x, y, w, h = cv2.boundingRect(c)
 
         # id, x, y, w, h, center
-        write_in_file(f"{csv_path}_points.csv", f"{i};{x + int(w / 2), y + int(h / 2)}\n") 
+        write_in_file(f"{csv_path}_points.csv", f"{i};{x + int(w / 2), y + int(h / 2)}\n")
 
         # ignore les élèments trop petits
         if w < min_rect or h < min_rect:
@@ -1016,10 +1027,10 @@ def check_elements(
         # affiche les bounding boxes en gris
         cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 1)
         i += 1
-        
+
         # vérifie les dimensions
         if (field_height - h_marge < h < field_height + h_marge) and (
-            field_width - w_marge < w < field_width + w_marge
+                field_width - w_marge < w < field_width + w_marge
         ):
             # change la couleur des bounding boxes valides
             cv2.rectangle(actual_screen, (x, y), (x + w, y + h), valid_results, 2)
@@ -1032,7 +1043,14 @@ def check_elements(
     # sauvegarde dans le fichier indiqué par "element_searched"
     if save:
         cv2.imwrite(f"{screencast_path}", actual_screen)
-        print(f"Results saved in {screencast_path}")
+
+    # ouvre le fichier .png
+    if open_file and save:
+        try:
+            im = Image.open(screencast_path)
+            im.show()
+        except Exception as e:
+            print(f"Error opening file: {e}")
 
     return count
 
@@ -1055,7 +1073,7 @@ def display_full_screen(image, window_name="FullScreenWindow", wait_time=0):
 
 
 def check_elements_bg_inv(
-    field_width, field_height, w_marge=None, h_marge=None, seconds=0, project="check"
+        field_width, field_height, w_marge=None, h_marge=None, seconds=0, project="check"
 ):
     """
     affiche les résultats (bounding boxes)
@@ -1121,7 +1139,7 @@ def check_elements_bg_inv(
         cv2.rectangle(actual_screen, (x, y), (x + w, y + h), false_results, 2)
 
         if (field_height - h_marge < h < field_height + h_marge) and (
-            field_width - w_marge < w < field_width + w_marge
+                field_width - w_marge < w < field_width + w_marge
         ):
             cv2.rectangle(actual_screen, (x, y), (x + w, y + h), valid_results, 2)
 
@@ -1133,7 +1151,7 @@ def check_elements_bg_inv(
 
 
 def check_text(
-    text, place=-1, sensitivy=False, seconds=0, project="check_text", save=False
+        text, place=-1, sensitivy=False, seconds=0, project="check_text", save=False
 ):
     """
     affiche les occurences (bouding boxes)
@@ -1156,7 +1174,56 @@ def write_in_file(file, text, mode="a"):
     stocke les coordonnées des bounding boxes
     :param file: fichier
     :param text: texte à écrire
+    :param mode: mode d'ouverture du fichier
     """
     with open(file, mode) as f:
         f.write(text)
 
+
+def add_point(file, x, y):
+    """
+    ajoute un point dans le fichier .csv
+    :param file: fichier
+    :param x: coordonnée x
+    :param y: coordonnée y
+    :return: identifiant de l'élément ajouté
+    ?? utilisée pour stocker manuellement des éléments non détectés
+    ?? exemple de line: 23;(1815, 162)
+    """
+    global SCREENSHOT
+
+    path = os.path.join(f"{SCREENSHOT}\\{file}\\{file}_points.csv")
+    i = 0
+
+    if os.path.isfile(path):
+        with open(path, "r") as f:
+            lines = f.readlines()
+
+            # si la dernière ligne a les mêmes coordonnées, on ne les ajoute pas
+            if lines[-1].split(";")[1] == f"({x}, {y})\n":
+                i = int(lines[-1].split(";")[0])
+            else:
+                i = int(lines[-1].split(";")[0]) + 1
+
+    write_in_file(path, f"{i};{(int(x), int(y))}\n")
+
+    return i
+
+
+def show_mouse_position(timeout=10):
+    """
+    affiche la position (x, y) de la souris
+    :param timeout: temps de fonctionnement
+    """
+
+    timeout = int(timeout)
+
+    while timeout > 0:
+        x, y = pyautogui.position()
+        positionStr = 'X: ' + str(x).rjust(4) + ' Y: ' + str(y).rjust(4)
+        print(positionStr, end='')
+        time.sleep(1)
+        print('\b' * len(positionStr), end='', flush=False)
+        timeout -= 1
+
+    print(positionStr)
